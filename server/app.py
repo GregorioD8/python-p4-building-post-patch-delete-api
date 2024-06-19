@@ -24,12 +24,7 @@ def games():
 
     games = []
     for game in Game.query.all():
-        game_dict = {
-            "title": game.title,
-            "genre": game.genre,
-            "platform": game.platform,
-            "price": game.price,
-        }
+        game_dict = game.to_dict()
         games.append(game_dict)
 
     response = make_response(
@@ -42,7 +37,7 @@ def games():
 @app.route('/games/<int:id>')
 def game_by_id(id):
     game = Game.query.filter(Game.id == id).first()
-    
+
     game_dict = game.to_dict()
 
     response = make_response(
@@ -52,20 +47,117 @@ def game_by_id(id):
 
     return response
 
-@app.route('/reviews')
+# Handle requests with the POST HTTP verb to /reviews.
+# Access the data in the body of the request.
+# Use that data to create a new review in the database.
+# Send a response with newly created review as JSON.
+# create a new record using the attributes passed in the request.
+@app.route('/reviews', methods=['GET', 'POST'])
 def reviews():
 
-    reviews = []
-    for review in Review.query.all():
-        review_dict = review.to_dict()
-        reviews.append(review_dict)
+    if request.method == 'GET':
+        reviews = []
+        for review in Review.query.all():
+            review_dict = review.to_dict()
+            reviews.append(review_dict)
+
+        response = make_response(
+            reviews,
+            200
+        )
+
+        return response
+
+    elif request.method == 'POST':
+        new_review = Review(
+            score=request.form.get("score"),
+            comment=request.form.get("comment"),
+            game_id=request.form.get("game_id"),
+            user_id=request.form.get("user_id"),
+        )
+
+        db.session.add(new_review)
+        db.session.commit()
+
+        review_dict = new_review.to_dict()
+
+        response = make_response(
+            review_dict,
+            201
+        )
+
+        return response
+
+@app.route('/users')
+def users():
+
+    users = []
+    for user in User.query.all():
+        user_dict = user.to_dict()
+        users.append(user_dict)
 
     response = make_response(
-        reviews,
+        users,
         200
     )
 
     return response
+
+# First, we'll need to handle requests by adding a new route in the controller. We can write out a route for a DELETE request just like we would for a GET request, just by changing the method
+@app.route('/reviews/<int:id>', methods=['GET', 'PATCH', 'DELETE'])
+def review_by_id(id):
+    review = Review.query.filter(Review.id == id).first()
+
+    if review == None:
+        response_body = {
+            "message": "This record does not exist in our database. Please try again."
+        }
+        response = make_response(response_body, 404)
+
+        return response
+
+    else:
+        if request.method == 'GET':
+            review_dict = review.to_dict()
+
+            response = make_response(
+                review_dict,
+                200
+            )
+
+            return response
+
+        elif request.method == 'PATCH':
+            for attr in request.form:
+                setattr(review, attr, request.form.get(attr))
+
+            db.session.add(review)
+            db.session.commit()
+
+            review_dict = review.to_dict()
+
+            response = make_response(
+                review_dict,
+                200
+            )
+
+            return response
+
+        elif request.method == 'DELETE':
+            db.session.delete(review)
+            db.session.commit()
+
+            response_body = {
+                "delete_successful": True,
+                "message": "Review deleted."
+            }
+
+            response = make_response(
+                response_body,
+                200
+            )
+
+            return response
 
 @app.route('/users')
 def users():
